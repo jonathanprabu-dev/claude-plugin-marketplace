@@ -1,0 +1,15 @@
+{
+  "name": "my-marketplace",
+  "description": "Jonathan's personal plugin marketplace.",
+  "owner": {
+    "name": "Jonathan Prabu",
+    "email": "jonathanprabu@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "my-toolkit",
+      "source": "./my-toolkit",
+      "description": "Personal toolkit: skill-creator skill plus code-reviewer, test-runner, verification-qa, and embedding-contract-guard agents."
+    }
+  ]
+}
