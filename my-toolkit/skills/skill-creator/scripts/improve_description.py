@@ -10,11 +10,15 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 from scripts.utils import parse_skill_md
+
+
+CLAUDE_BIN = shutil.which("claude") or "claude"
 
 
 def _call_claude(prompt: str, model: str | None, timeout: int = 300) -> str:
@@ -23,7 +27,7 @@ def _call_claude(prompt: str, model: str | None, timeout: int = 300) -> str:
     Prompt goes over stdin (not argv) because it embeds the full SKILL.md
     body and can easily exceed comfortable argv length.
     """
-    cmd = ["claude", "-p", "--output-format", "text"]
+    cmd = [CLAUDE_BIN, "-p", "--output-format", "text"]
     if model:
         cmd.extend(["--model", model])
 
