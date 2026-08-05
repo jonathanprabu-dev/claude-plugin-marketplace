@@ -1,7 +1,7 @@
 {
   "name": "my-toolkit",
-  "description": "Personal toolkit: skill-creator skill plus code-reviewer, test-runner, verification-qa, and embedding-contract-guard agents.",
-  "version": "1.0.0",
+  "description": "Personal toolkit: agent-sdk-demos, agent-view, claude-code-docs, plugin-marketplaces, and skill-creator skills, plus code-reviewer, test-runner, verification-qa, and embedding-contract-guard agents.",
+  "version": "1.1.1",
   "author": {
     "name": "Jonathan Prabu",
     "email": "jonathanprabu@gmail.com"

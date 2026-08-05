@@ -5,6 +5,11 @@ A Claude Code plugin bundling my personal skills and agents.
 ## What's inside
 
 **Skills** (`skills/`)
+- `agent-sdk-demos` — index of Anthropic's official Claude Agent SDK demo apps, cloned
+  at `C:\dev\claude-agent-sdk-demos`, mapped by what you're building.
+- `agent-view` — dispatch, monitor, and clean up background sessions (`claude agents`).
+- `claude-code-docs` — search and quote the official Claude Code docs instead of memory.
+- `plugin-marketplaces` — discover, install, and manage plugins and marketplaces.
 - `skill-creator` — create, improve, and eval-test Claude Code skills.
 
 **Agents** (`agents/`)
@@ -35,6 +40,6 @@ my-toolkit/
 ├── .claude-plugin/
 │   └── plugin.json      # plugin manifest (name, version, author)
 ├── agents/              # subagent definitions (*.md with frontmatter)
-└── skills/
-    └── skill-creator/   # SKILL.md + scripts, references, assets
+├── bin/                 # launchers Claude Code puts on PATH (claude-code-docs)
+└── skills/              # one directory per skill: SKILL.md + references/scripts
 ```
