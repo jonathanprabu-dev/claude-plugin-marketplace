@@ -1,0 +1,18 @@
+# Git for Windows ships core.autocrlf=true in the system config, which rewrites
+# every checked-out text file to CRLF. These are plugin sources — skills, Python
+# scripts, and a shell launcher that Claude Code runs through Bash — so pin them
+# to LF in the repo and in the working tree.
+* text=auto eol=lf
+
+# Windows batch launchers are the exception: cmd.exe can mis-parse labels and
+# goto targets in an LF-only .bat/.cmd, so these keep CRLF on checkout.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binaries git should never touch.
+*.png binary
+*.jpg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.pyc binary
