@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
-"""Search and read the official Pydantic Logfire documentation.
+"""Search and read the official Pydantic Logfire and Pydantic Evals documentation.
 
-The docs publish two machine-readable files:
+Evaluation questions straddle two doc sites: the Logfire *platform* documents hosted
+datasets, experiments and live evals, while the `pydantic-evals` *library* — Case,
+Dataset, Evaluator, LLMJudge — is documented under pydantic.dev/docs/ai/evals/. A user
+asking "why is my LLM judge scoring everything 0" doesn't know or care which half owns
+the answer, so this script indexes both and lets one search cross the boundary.
 
-  https://pydantic.dev/docs/logfire/llms.txt       index, `- [Title](url): description`
-  https://pydantic.dev/docs/logfire/llms-full.txt  every page's markdown, concatenated
+Each site publishes two machine-readable files:
 
-The full corpus is one ~2 MB download covering every page, so `grep` needs a single
-fetch rather than a per-page crawl. Pages inside it are delimited by a `# [Title](url)`
-heading, which is what lets a match be attributed back to its page.
+  <base>/llms.txt       index, `- [Title](url): description`
+  <base>/llms-full.txt  every page's markdown, concatenated
+
+so a whole site is one download rather than a per-page crawl. Pages inside the full text
+are delimited by a `# [Title](url)` heading, which is what lets a match be attributed
+back to its page. The AI site is large (~5 MB) and only its 22 `evals/*` pages are
+relevant here, so SOURCES carries a `prefix` filter and corpora load lazily — a lookup
+that stays on one site never pays for the other.
 
 The index also groups entries under `##`/`###` headings ("Evaluations", "Integrations",
-"Reference & Resources"). Those are recorded per entry, because Logfire slugs end in
-generic leaf names — `overview` exists under evaluate/ and cookbook/ both — and the
-section is what tells them apart in a result list.
+"Pydantic Evals > Evaluators"). Those are recorded per entry, because slugs on both sites
+end in generic leaf names — `overview` names pages under evaluate/, cookbook/ and
+evals/evaluators/ alike — and the section is what tells them apart in a result list. It
+doubles as the source label: every `pydantic-evals` page sits under "Pydantic Evals", so
+`--group` already discriminates between the two sites without a separate flag.
 
 Commands:
   index [--group REGEX]     List every page (section + title + url + description).
@@ -42,11 +52,28 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-INDEX_URL = "https://pydantic.dev/docs/logfire/llms.txt"
-FULL_URL = "https://pydantic.dev/docs/logfire/llms-full.txt"
 CACHE = Path.home() / ".cache" / "logfire-docs"
 TTL = 24 * 60 * 60
 UA = "logfire-docs-skill/1.0"
+
+# Two doc sites, one corpus. `base` is the URL segment that slugs are measured from;
+# `prefix` keeps a site to the subtree that belongs here (None means the whole site).
+# Slugs are checked for collisions at merge time — today `evaluate/*` and `evals/*`
+# can't clash, but that's the docs' choice, not a guarantee.
+SOURCES = {
+    "logfire": {
+        "base": "/docs/logfire/",
+        "index": "https://pydantic.dev/docs/logfire/llms.txt",
+        "full": "https://pydantic.dev/docs/logfire/llms-full.txt",
+        "prefix": None,
+    },
+    "evals": {
+        "base": "/docs/ai/",
+        "index": "https://pydantic.dev/docs/ai/llms.txt",
+        "full": "https://pydantic.dev/docs/ai/llms-full.txt",
+        "prefix": "evals/",
+    },
+}
 
 # Index lines look like: `- [Overview](https://pydantic.dev/docs/logfire/evaluate/overview/index.md): desc`
 ENTRY_RE = re.compile(r"^- \[(?P<title>[^\]]+)\]\((?P<url>[^)]+)\)(?::\s*(?P<desc>.*))?$")
@@ -80,15 +107,25 @@ def cached(key: str, url: str, refresh: bool, goal: str | None, organization: st
     return text
 
 
-def slug_of(url: str) -> str:
+def slug_of(url: str, base: str) -> str:
     """https://pydantic.dev/docs/logfire/evaluate/overview/index.md -> evaluate/overview
 
     llms-full.txt cites the same pages without the `index.md` tail, so both forms
     have to reduce to the same slug or the index and the corpus won't line up.
+
+    `base` is the source's URL segment. Splitting on the wrong one silently yields the
+    whole URL as the "slug", which then fails to join against the index — so a URL that
+    doesn't contain its base is a bug worth surfacing rather than absorbing.
     """
-    tail = url.split("/docs/logfire/", 1)[-1]
+    if base not in url:
+        return ""
+    tail = url.split(base, 1)[-1]
     tail = tail.removesuffix("index.md").removesuffix(".md")
     return tail.strip("/")
+
+
+def in_scope(slug: str, prefix: str | None) -> bool:
+    return bool(slug) and (prefix is None or slug.startswith(prefix))
 
 
 def human_url(url: str) -> str:
@@ -97,8 +134,20 @@ def human_url(url: str) -> str:
 
 
 def load_index(refresh: bool, goal: str | None, org: str | None) -> list[dict]:
-    text = cached("llms.txt", INDEX_URL, refresh, goal, org)
-    entries, seen = [], set()
+    """Merge every source's index into one entry list, tagged with its source."""
+    entries: list[dict] = []
+    seen: set[str] = set()
+    for key, src in SOURCES.items():
+        entries.extend(load_one_index(key, src, refresh, goal, org, seen))
+    if not entries:
+        sys.exit("Could not parse any entries from llms.txt — its format may have changed.")
+    return entries
+
+
+def load_one_index(key: str, src: dict, refresh: bool, goal: str | None,
+                   org: str | None, seen: set[str]) -> list[dict]:
+    text = cached(f"{key}-llms.txt", src["index"], refresh, goal, org)
+    entries = []
     # Track the heading stack so each entry knows the section it was listed under;
     # `### Evaluations` nested in `## AI Engineering` becomes "AI Engineering > Evaluations".
     stack: dict[int, str] = {}
@@ -113,8 +162,8 @@ def load_index(refresh: bool, goal: str | None, org: str | None) -> list[dict]:
                 stack[level] = h["text"]
             continue
         url = m["url"]
-        slug = slug_of(url)
-        if slug in seen:
+        slug = slug_of(url, src["base"])
+        if not in_scope(slug, src["prefix"]) or slug in seen:
             continue
         seen.add(slug)
         entries.append(
@@ -122,42 +171,56 @@ def load_index(refresh: bool, goal: str | None, org: str | None) -> list[dict]:
                 "title": m["title"],
                 "url": url,
                 "slug": slug,
+                "source": key,
                 "section": " > ".join(stack[k] for k in sorted(stack)),
                 "description": (m["desc"] or "").strip(),
             }
         )
-    if not entries:
-        sys.exit("Could not parse any entries from llms.txt — its format may have changed.")
     return entries
 
 
-def load_corpus(refresh: bool, goal: str | None, org: str | None) -> dict[str, dict]:
-    """Split llms-full.txt into pages keyed by slug.
+def load_corpus(keys, refresh: bool, goal: str | None, org: str | None) -> dict[str, dict]:
+    """Split each named source's llms-full.txt into pages keyed by slug.
 
-    One download covers every page, so this is the only network call `grep` and
-    `read` ever need.
+    `keys` is which sources the current command actually needs. That matters: the AI
+    site is ~5 MB against Logfire's ~2 MB, and most lookups touch only one of them, so
+    fetching both by reflex would nearly quadruple the cost of a cold `read`.
     """
-    text = cached("llms-full.txt", FULL_URL, refresh, goal, org)
+    pages: dict[str, dict] = {}
+    for key in keys:
+        src = SOURCES[key]
+        text = cached(f"{key}-llms-full.txt", src["full"], refresh, goal, org)
+        found = split_pages(text, key, src)
+        if not found:
+            sys.exit(f"Could not split {key} llms-full.txt into pages — its format may have changed.")
+        pages.update(found)
+    return pages
+
+
+def split_pages(text: str, key: str, src: dict) -> dict[str, dict]:
     pages: dict[str, dict] = {}
     current: dict | None = None
     buf: list[str] = []
+
+    def close(page: dict | None, lines: list[str]) -> None:
+        # Out-of-scope pages are parsed and dropped rather than skipped, because the
+        # `# [Title](url)` delimiter is the only thing marking where a page ends —
+        # ignoring one mid-stream would fold its body into the previous page.
+        if page and in_scope(page["slug"], src["prefix"]):
+            page["lines"] = lines
+            pages[page["slug"]] = page
+
     for line in text.splitlines():
         m = PAGE_RE.match(line)
         if m:
-            if current:
-                current["lines"] = buf
-                pages[current["slug"]] = current
+            close(current, buf)
             url = m["url"]
-            current = {"title": m["title"], "url": url, "slug": slug_of(url)}
+            current = {"title": m["title"], "url": url, "slug": slug_of(url, src["base"]), "source": key}
             buf = []
             continue
         if current:
             buf.append(line)
-    if current:
-        current["lines"] = buf
-        pages[current["slug"]] = current
-    if not pages:
-        sys.exit("Could not split llms-full.txt into pages — its format may have changed.")
+    close(current, buf)
     return pages
 
 
@@ -326,15 +389,16 @@ def main() -> None:
         )
         return
 
-    pages = load_corpus(args.refresh, goal, org)
-
     if args.cmd == "read":
+        # Resolve against the index first: it's already loaded, and knowing the page
+        # tells us which of the two corpora to download.
         entry, candidates = resolve(args.target, visible)
         if not entry:
             if candidates:
                 listing = "\n  ".join(f"{e['slug']:<40} ({e['section']})" for e in candidates[:15])
                 sys.exit(f"{args.target!r} matches {len(candidates)} pages — pick one:\n  {listing}")
             sys.exit(f"No page matches {args.target!r}. Run `search` or `index` to find the slug.")
+        pages = load_corpus([entry["source"]], args.refresh, goal, org)
         page = pages.get(entry["slug"])
         if page is None:
             # Corpus and index disagree — fall back to the page's own markdown URL.
@@ -362,6 +426,13 @@ def main() -> None:
         pat = re.compile(args.pattern, re.I)
         slug_pat = re.compile(args.slug, re.I) if args.slug else None
         in_group = {e["slug"] for e in visible} if args.group else None
+        # --group and --slug often confine the search to one site; work out which
+        # corpora can still contribute a match and download only those.
+        wanted = [e for e in visible if not slug_pat or slug_pat.search(e["slug"])]
+        keys = [k for k in SOURCES if any(e["source"] == k for e in wanted)]
+        if not keys:
+            sys.exit(f"No page matches --slug {args.slug!r}. Run `index` to see the slugs.")
+        pages = load_corpus(keys, args.refresh, goal, org)
         shown = 0
         for slug in sorted(pages):
             if slug_pat and not slug_pat.search(slug):

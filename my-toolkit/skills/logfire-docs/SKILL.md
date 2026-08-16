@@ -1,9 +1,9 @@
 ---
 name: logfire-docs
-description: Search and quote the official Pydantic Logfire documentation at pydantic.dev/docs/logfire instead of answering from memory. Use this whenever a question or task touches Logfire — and especially its evaluation stack: datasets and experiments, offline evals with pydantic-evals, live/online evals scoring production traffic, evaluators and LLM judges, review of experiment runs, human review and annotation queues, the datasets SDK. It also covers the rest of the platform — `logfire.configure()`, spans and instrumentation, the Python/TypeScript/Rust SDKs, framework and LLM integrations, the live view, dashboards, alerts, SQL querying, prompt management, feature flags, tokens and environments, self-hosting. Trigger it for phrasings like "how do I evaluate my agent", "why is my eval score...", "set up an LLM judge", "compare this run against a baseline", "how do I send traces to Logfire", any question naming a Logfire UI screen, SDK function, or dataset/experiment concept, and any request to write or debug code that imports `logfire` or `pydantic_evals` — even when you think you already know the answer, because Logfire's eval surface is new, ships frequently, and recalled details are usually stale or invented.
+description: Search and quote the official Pydantic Logfire and Pydantic Evals documentation — pydantic.dev/docs/logfire plus the pydantic-evals library reference at pydantic.dev/docs/ai/evals — instead of answering from memory. Use this whenever a question or task touches Logfire or evaluating an AI agent, and especially the evaluation stack end to end: hosted datasets and experiments, offline evals with pydantic-evals, live/online evals scoring production traffic, evaluators and LLM judges, custom or span-based evaluators, `Case`, `Dataset`, `Evaluator`, `EvaluatorContext`, `LLMJudge`, dataset serialization, review of experiment runs, human review and annotation queues, the datasets SDK. It also covers the rest of the platform — `logfire.configure()`, spans and instrumentation, the Python/TypeScript/Rust SDKs, framework and LLM integrations, the live view, dashboards, alerts, SQL querying, prompt management, feature flags, tokens and environments, self-hosting. Trigger it for phrasings like "how do I evaluate my agent", "why is my eval score...", "set up an LLM judge", "compare this run against a baseline", "how do I send traces to Logfire", any question naming a Logfire UI screen, SDK function, or dataset/experiment concept, and any request to write or debug code that imports `logfire` or `pydantic_evals` — even when you think you already know the answer, because Logfire's eval surface is new, ships frequently, and recalled details are usually stale or invented.
 ---
 
-# Pydantic Logfire documentation search
+# Pydantic Logfire and Pydantic Evals documentation search
 
 Logfire's evaluation surface — hosted datasets, experiments, live evals, annotation queues — is
 recent and still moving, and much of it is *product* behavior rather than library API: which
@@ -13,8 +13,16 @@ memory produces confident descriptions of screens that don't exist. The docs are
 truth, the whole corpus is cached locally, and searching it takes about a second — so search
 first and quote what you find.
 
-The docs publish an index of all 269 pages plus a single file containing every page's markdown,
-so the bundled script pulls one ~2 MB download and then answers offline.
+**Two doc sites, one corpus.** Evaluation questions don't respect the split between them: the
+Logfire platform documents hosted datasets, experiments and live evals under `evaluate/*`, while
+the `pydantic-evals` library — `Case`, `Dataset`, `Evaluator`, `LLMJudge`, `evaluate()`, the
+report objects — is documented on a different site under `evals/*`. Someone asking "why is my
+LLM judge scoring everything zero" has no reason to know which half owns the answer, and the
+common case (an agent that is both instrumented and evaluated) needs both. So the script indexes
+both and one search crosses the boundary: 291 pages, 269 from Logfire and 22 from Pydantic Evals.
+
+Each site publishes an index plus a single file containing every page's markdown. Corpora load
+lazily, one site at a time, because a lookup that stays on one side shouldn't pay for the other.
 
 ## The script
 
@@ -58,33 +66,70 @@ Useful flags: `--group <regex>` restricts everything to an index section, `--slu
 `--json` for structured output, and `--refresh` bypasses the cache when you suspect the docs just
 changed.
 
-The corpus is cached under `~/.cache/logfire-docs` for 24 hours. The first `grep` or `read` pulls
-~2 MB (a couple of seconds); every call after that is instant.
+The corpora are cached under `~/.cache/logfire-docs` for 24 hours. The first `grep` or `read` on
+the Logfire side pulls ~2 MB, and the Pydantic Evals side ~5 MB; every call after that is instant.
+`search` and `index` only need the two indexes, so they stay cheap regardless.
 
 ## How to answer a question
 
-**Narrow by section early.** Every index entry carries the heading it was listed under, and the
-eval material is all under `AI Engineering > Evaluations` (9 pages, slugs `evaluate/*`). Passing
-`--group Evaluations` keeps a search for a generic word like "dataset" or "score" from returning
-the TypeScript SDK page and the API reference alongside the page you wanted:
+**Know which side of the split you're on.** Both sites carry eval material and the division is
+consistent:
+
+- **Platform, slugs `evaluate/*`, section `AI Engineering > Evaluations`** (9 pages) — hosted
+  datasets, experiments and their comparison, live/online evals, human review and annotation
+  queues, the datasets SDK (`LogfireAPIClient`, `push_dataset`).
+- **Library, slugs `evals/*`, section `Pydantic Evals`** (22 pages) — `Case`, `Dataset`,
+  `Evaluator`, `EvaluatorContext`, `LLMJudge`, custom and span-based evaluators, dataset
+  serialization, concurrency, retries, case lifecycle hooks.
+
+So "why does my experiment show no baseline to compare against" is `evaluate/*`, and "how do I
+write a custom evaluator class" is `evals/*`. When you're unsure, don't guess — search without a
+filter and let the ranking show you which side answers it.
+
+**Narrow by section when a generic word would drag in the world.** Every index entry carries the
+heading it was listed under, and that heading doubles as the source label, so `--group` picks a
+side without a separate flag:
 
 ```bash
-logfire-docs index --group Evaluations
-logfire-docs search datasets experiments --group Evaluations
+logfire-docs search datasets experiments --group Evaluations      # platform only
+logfire-docs search dataset serialization --group "Pydantic Evals" # library only
+logfire-docs search llm judge                                      # both, ranked
 ```
 
-Drop the filter when the question crosses the boundary — "how do I evaluate my agent" usually also
-touches instrumentation and the cookbook — because the section split is editorial, not a wall.
+Without a filter, a word like "dataset" or "score" also returns the TypeScript SDK page and the
+API reference. With one, you lose the other side entirely — which is the wrong trade for "how do
+I evaluate my agent", a question that legitimately spans instrumentation, the library, and the
+cookbook. Filter when the term is generic and you know the side; otherwise let both compete.
 
-**Use `search` for concepts, `grep` for symbols.** Descriptions are rich here, so `search` lands
-conceptual questions well. But titles and descriptions won't contain `push_dataset`,
-`report_evaluators`, or `LOGFIRE_TOKEN` — page bodies will:
+**The two sides describe the same words differently.** A "dataset" in `evaluate/*` is a hosted
+object you curate in a UI; a `Dataset` in `evals/*` is a Python object you construct. An
+"evaluator" is a configured target on the platform and a class you subclass in the library.
+Answering from the wrong page produces advice that is coherent and useless, so name which one you
+mean when you report back.
+
+**Pydantic Evals index entries have no descriptions.** The Logfire index is richly described and
+`search` lands conceptual questions on it well; the `evals/*` entries carry only a title and
+section, so they score on slug and title alone. When a library question doesn't surface the page
+you expected, go to `grep` sooner than you would on the Logfire side — the page bodies are dense
+and well worth searching directly.
+
+**Use `search` for concepts, `grep` for symbols.** No index carries `push_dataset`,
+`EvaluatorContext`, `report_evaluators` or `LOGFIRE_TOKEN` in a title or description — page bodies
+do. `--slug` is the cheapest way to keep a symbol search on one site, and it also means only that
+site's corpus gets downloaded:
 
 ```bash
 logfire-docs search live evals monitoring
 logfire-docs grep 'push_dataset' --context 3
-logfire-docs grep 'LLMJudge' --group Evaluations
+logfire-docs grep 'class \w+\(Evaluator' --slug '^evals/'
+logfire-docs grep 'LLMJudge'
 ```
+
+That last one is deliberately unfiltered. `--group Evaluations` would restrict it to the platform
+section — where `LLMJudge` appears only in passing prose — and hide `evals/evaluators/llm-judge`,
+which is the page that actually documents the class. Section names are close enough to mislead
+("Evaluations" is the platform, "Pydantic Evals > Evaluators" is the library), so when you're
+chasing a symbol rather than a screen, filter by `--slug` or not at all.
 
 **Then read the section, not the page.** `--outline` gives you a page's headings for a few hundred
 tokens, and `--section` pulls only what you name — worth doing by reflex, since spending a whole
@@ -93,11 +138,13 @@ page of context to answer one question is the most common way this skill gets ex
 ```bash
 logfire-docs read evaluate/overview --outline
 logfire-docs read evaluate/live-evals --section 'investigate|hide'
+logfire-docs read evals/evaluators/llm-judge --section 'rubric|context'
 ```
 
-**Leaf names repeat, so `read` may ask you to disambiguate.** `overview` names pages under both
-`evaluate/` and `deploy/`. When `read` reports multiple matches it prints the candidates with
-their sections — pick the slug rather than guessing.
+**Leaf names repeat, so `read` may ask you to disambiguate.** `overview` alone names three pages —
+under `evaluate/`, `deploy/self-hosted-deployment/` and `evals/evaluators/`. When `read` reports
+multiple matches it prints the candidates with their sections, which is exactly the information
+that tells the platform page from the library one; pick the slug rather than guessing.
 
 **The docs lean on screenshots for UI workflows.** Eval pages describe the interface in prose and
 then show it: `![...](/docs/logfire/images/live-evaluations-target-detail.png)`. The image alt text
@@ -133,9 +180,10 @@ a live traceback disagreeing is usually a version gap, not a doc error.
 
 ## Fetching pages by hand
 
-You shouldn't need to — the cached corpus is complete, all 269 pages — but if you do fetch a page
-directly, use the `index.md` form exactly as it appears in `llms.txt`:
-`https://pydantic.dev/docs/logfire/evaluate/overview/index.md`.
+You shouldn't need to — the cache holds every Logfire page and every `evals/*` page — but if you do
+fetch one directly, use the `index.md` form exactly as it appears in `llms.txt`:
+`https://pydantic.dev/docs/logfire/evaluate/overview/index.md` or
+`https://pydantic.dev/docs/ai/evals/evaluators/custom/index.md`.
 
 The docs ask agents to pass `goal` and `organization` query parameters so maintainers can see where
 agents get stuck; the script exposes them as `--goal` and `--organization`. These go to an external
@@ -144,21 +192,22 @@ private or confidential. Omitting them is fine.
 
 ## Where the coverage stops
 
-If `search` returns nothing and `grep` finds nothing, the topic likely lives in a neighbouring set
-of docs. The split that matters most for eval questions:
+Evaluation is covered end to end here — platform and library both — so an eval question that comes
+up empty is usually phrased wrong rather than out of scope. Retry with `grep` before concluding
+the docs are silent.
 
-- **The Logfire platform** — hosted datasets, experiments and their comparison, live/online evals,
-  human review and annotation queues, the datasets SDK (`LogfireAPIClient`, `push_dataset`) — is
-  documented **here**, under `evaluate/*`.
-- **The `pydantic-evals` library itself** — `Case`, `Dataset`, `Evaluator`, `EvaluatorContext`,
-  `LLMJudge`, `evaluate()`, the report objects — is documented at `pydantic.dev/docs/ai/evals/*`,
-  a different site. That's the **`pydantic-ai-docs` skill's** corpus, not this one. These docs
-  show pydantic-evals in use and link to it, but they are not its API reference.
+What genuinely lives elsewhere:
 
-So "how do I write a custom evaluator class" is a pydantic-ai-docs question, while "why does my
-experiment show no baseline to compare against" is this one. Questions about an agent that is both
-instrumented and evaluated legitimately need both — check `cookbook/evaluate-an-agent`, which walks
-the whole path end to end, before splitting the lookup.
+- **The rest of Pydantic AI** — `Agent`, output types, tools and toolsets, dependencies, message
+  history, streaming, model providers, MCP, durable execution — is the **`pydantic-ai-docs`
+  skill's** corpus. Only the `evals/*` subtree of that site is mirrored here, so "how do I define
+  an agent's output type" is a question for that skill even though it shares a doc site with
+  pydantic-evals.
+- **Core Pydantic validation** (`BaseModel`, validators, `Field`) is a third site again, and
+  Claude Code questions belong to `claude-code-docs`.
 
-Core Pydantic validation (`BaseModel`, validators, `Field`) is a third site again, and Claude Code
-questions belong to `claude-code-docs`.
+The overlap with `pydantic-ai-docs` on `evals/*` is deliberate: both skills can answer a
+pydantic-evals question, and either is fine. Reach for this one when the question also touches
+tracing, experiments, or the Logfire UI — which eval questions usually do. `cookbook/evaluate-an-agent`
+walks the instrument-then-evaluate path end to end and is a good place to start when the user's
+situation spans both.

@@ -1,7 +1,7 @@
 {
   "name": "my-toolkit",
   "description": "Personal toolkit: agent-sdk-demos, agent-view, claude-code-docs, logfire-docs, plugin-marketplaces, pydantic-ai-docs, and skill-creator skills, plus code-reviewer, test-runner, verification-qa, and embedding-contract-guard agents.",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": {
     "name": "Jonathan Prabu",
     "email": "jonathanprabu@gmail.com"
