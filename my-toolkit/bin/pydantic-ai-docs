@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# Launcher for the pydantic-ai-docs skill. Claude Code puts each plugin's bin/
+# directory on PATH, so the skill can call `pydantic-ai-docs` from any cwd
+# instead of needing to know where the plugin is installed.
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec python "$DIR/skills/pydantic-ai-docs/scripts/docs.py" "$@"
