@@ -107,6 +107,16 @@ object you curate in a UI; a `Dataset` in `evals/*` is a Python object you const
 Answering from the wrong page produces advice that is coherent and useless, so name which one you
 mean when you report back.
 
+**When the question names both a code object and a screen, your first lookup must be unfiltered.**
+"I built a `Dataset` in Python but my teammate edits the dataset in the UI" names a class *and* an
+action someone takes in a browser; so does "my `LLMJudge` scores are fine locally but the
+experiment shows nothing". That conjunction is the tell that the answer lives on both sides, and
+it's exactly the case where scoping feels safest and is most wrong — the question *is* which side
+owns what, so a filter picked before searching assumes away the thing being asked. This applies to
+`search` as much as `grep`: `--group Evaluations` on a question mentioning `Dataset` returns a
+confident, well-cited, half-right answer, which is worse than a slow one. Search wide first, let
+both sides rank, and narrow only once you've seen which pages actually compete.
+
 **Pydantic Evals index entries have no descriptions.** The Logfire index is richly described and
 `search` lands conceptual questions on it well; the `evals/*` entries carry only a title and
 section, so they score on slug and title alone. When a library question doesn't surface the page
