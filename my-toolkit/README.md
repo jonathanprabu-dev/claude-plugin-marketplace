@@ -5,8 +5,8 @@ A Claude Code plugin bundling my personal skills and agents.
 ## What's inside
 
 **Skills** (`skills/`)
-- `agent-sdk-demos` — index of Anthropic's official Claude Agent SDK demo apps, cloned
-  at `C:\dev\claude-agent-sdk-demos`, mapped by what you're building.
+- `agent-sdk-demos` — index of Anthropic's official Claude Agent SDK demo apps, mapped
+  by what you're building.
 - `agent-view` — dispatch, monitor, and clean up background sessions (`claude agents`).
 - `claude-code-docs` — search and quote the official Claude Code docs instead of memory.
 - `logfire-docs` — search and quote the official Pydantic Logfire docs instead of memory.
@@ -22,18 +22,27 @@ A Claude Code plugin bundling my personal skills and agents.
 
 ## Install
 
-From this repo's parent folder, add it as a local marketplace and install:
+Add this repo as a marketplace in Claude Code, then install the plugin:
 
 ```
-/plugin marketplace add "C:\dev\DIscover & install pre built plugins & Create plugins"
+/plugin marketplace add jonathanprabu-dev/claude-plugin-marketplace
 /plugin install my-toolkit@my-marketplace
 ```
 
-Or for quick testing without installing, launch Claude Code with:
+Or, from a local clone, test it without installing:
 
 ```
-claude --plugin-dir "C:\dev\DIscover & install pre built plugins & Create plugins\my-toolkit"
+claude --plugin-dir ./my-toolkit
 ```
+
+`agent-sdk-demos` expects a local clone of
+[anthropics/claude-agent-sdk-demos](https://github.com/anthropics/claude-agent-sdk-demos);
+edit the path in its SKILL.md to match yours.
+
+## Credits
+
+`skill-creator` is Anthropic's open-source skill-creator skill (Apache 2.0, see its
+`LICENSE.txt`), bundled here with its licence.
 
 ## Structure
 
